@@ -110,7 +110,7 @@ namespace MerchantsAPI_p2.EndpointHandlers
             // Cache the fetched data
             Console.WriteLine("Creating cache");
 
-            memoryCache.Set<IEnumerable<MerchantDto>>("MerchantsData",merchantsDto);
+            memoryCache.Set<IEnumerable<MerchantDto>>("MerchantsData", merchantsDto, TimeSpan.FromMinutes(10)); // cache for 10 minutes
 
             return TypedResults.Ok(merchantsDto);
             
