@@ -8,21 +8,24 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
+using Microsoft.Extensions.Caching.Memory;
 
 namespace MerchantsAPI_p2.EndpointHandlers
 {
     public static class MerchantHandler
     {
-        public static async Task<Results<NotFound, Ok<IEnumerable<MerchantDto>>>> 
+        /*
+        public static async Task<Results<NotFound, Ok<IEnumerable<MerchantDto>>>>
             GetMerchantsAsync(MerchantDbContext merchantDbContext,
                               ClaimsPrincipal claimsPrincipal,
                               IMapper mapper,
                               [FromQuery] string? name)
-                {
-                    Console.WriteLine($"User authenticated? {claimsPrincipal.Identity?.IsAuthenticated}");
-                    return TypedResults.Ok(mapper.Map<IEnumerable<MerchantDto>>(await merchantDbContext.Merchants.
-                        Where(m => name == null || m.Name.Contains(name)).ToListAsync()));
-                }
+        {
+            Console.WriteLine($"User authenticated? {claimsPrincipal.Identity?.IsAuthenticated}");
+            return TypedResults.Ok(mapper.Map<IEnumerable<MerchantDto>>(await merchantDbContext.Merchants.
+                Where(m => name == null || m.Name.Contains(name)).ToListAsync()));
+        }
+        */
 
 
         public static async Task<Results<NotFound, Ok<MerchantDto>>> GetAMerchantAsync(MerchantDbContext merchantDbContext,
@@ -68,7 +71,7 @@ namespace MerchantsAPI_p2.EndpointHandlers
             return TypedResults.NoContent();
         }
 
-        //For Testing purposes
+        // For Testing purposes
         public static async Task<Results<NotFound, Ok<Merchant>>> GetMerchantsAllFieldsTestingAsync(MerchantDbContext merchantDbContext,
                                                                                                     Guid merchant_unique_id)
         {
@@ -79,6 +82,41 @@ namespace MerchantsAPI_p2.EndpointHandlers
             }
             return TypedResults.Ok(merchantEntity);
         }
+
+        // Add cache memory
+        public static async Task<Results<NotFound, Ok<IEnumerable<MerchantDto>>>>
+            GetMerchantsAsync(MerchantDbContext merchantDbContext,
+                              ClaimsPrincipal claimsPrincipal,
+                              IMapper mapper,
+                              IMemoryCache memoryCache,
+                              [FromQuery] string? name)
+        {
+            Console.WriteLine($"User authenticated? {claimsPrincipal.Identity?.IsAuthenticated}");
+            
+            // Check if data is already in cache
+            if (memoryCache.TryGetValue("MerchantsData", out IEnumerable<MerchantDto>? cachedMerchants))
+            {
+                Console.WriteLine("Data retrieved from cache");
+                return TypedResults.Ok(cachedMerchants);
+            }
+
+            // Data not found in cache, fetch from database
+            var merchants = await merchantDbContext.Merchants
+                .Where(m => name == null || m.Name.Contains(name))
+                .ToListAsync();
+
+            var merchantsDto = mapper.Map<IEnumerable<MerchantDto>>(merchants);
+
+            // Cache the fetched data
+            Console.WriteLine("Creating cache");
+
+            memoryCache.Set<IEnumerable<MerchantDto>>("MerchantsData",merchantsDto);
+
+            return TypedResults.Ok(merchantsDto);
+            
+
+        }
+
     }
 
 }
