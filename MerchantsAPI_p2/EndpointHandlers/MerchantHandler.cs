@@ -40,20 +40,20 @@ namespace MerchantsAPI_p2.EndpointHandlers
             return TypedResults.Ok(mapper.Map<MerchantDto>(merchantEntity));
         }
 
-        public static async Task<Results<NotFound, Created<MerchantDto>>> PostMerchantAsync(MerchantDbContext merchantDbContext,
-                                                                                        IMapper mapper,
-                                                                                        MerchantForCreationDto merchantForCreationDto,
-                                                                                        LinkGenerator linkGenerator,
-                                                                                        HttpContext httpContext)
-        {
-            var merchantEntity = mapper.Map<Merchant>(merchantForCreationDto);
-            merchantDbContext.Add(merchantEntity);
-            await merchantDbContext.SaveChangesAsync();
-            var merchantToReturn = mapper.Map<MerchantDto>(merchantEntity);
+        //public static async Task<Results<NotFound, Created<MerchantDto>>> PostMerchantAsync(MerchantDbContext merchantDbContext,
+        //                                                                                IMapper mapper,
+        //                                                                                MerchantForCreationDto merchantForCreationDto,
+        //                                                                                LinkGenerator linkGenerator,
+        //                                                                                HttpContext httpContext)
+        //{
+        //    var merchantEntity = mapper.Map<Merchant>(merchantForCreationDto);
+        //    merchantDbContext.Add(merchantEntity);
+        //    await merchantDbContext.SaveChangesAsync();
+        //    var merchantToReturn = mapper.Map<MerchantDto>(merchantEntity);
 
-            var linkToMerchant = linkGenerator.GetUriByName(httpContext, "GetMerchant", new { merchantId = merchantToReturn.Id });
-            return TypedResults.Created(linkToMerchant, merchantToReturn);
-        }
+        //    var linkToMerchant = linkGenerator.GetUriByName(httpContext, "GetMerchant", new { merchantId = merchantToReturn.Id });
+        //    return TypedResults.Created(linkToMerchant, merchantToReturn);
+        //}
 
         public static async Task<Results<NotFound, NoContent>> PutMerchantUpdatePaymentAsync(MerchantDbContext merchantDbContext,
                                                                          IMapper mapper,
@@ -117,6 +117,43 @@ namespace MerchantsAPI_p2.EndpointHandlers
 
         }
 
+        // Add idempotency cache
+        public static async Task<Results<NotFound, Created<MerchantDto>>> PostMerchantAsync(MerchantDbContext merchantDbContext,
+                                                                                IMapper mapper,
+                                                                                MerchantForCreationDto merchantForCreationDto,
+                                                                                LinkGenerator linkGenerator,
+                                                                                HttpContext httpContext,
+                                                                                IMemoryCache memoryCache)
+        {
+            // Generate a unique identifier for the request
+            var requestId = "cachedRequest";
+
+            // Check if the request already been processed
+            if(memoryCache.TryGetValue(requestId, out bool isProcessed) &&  isProcessed)
+            {
+                Console.WriteLine("Request is processed, return from cache");
+                var cachedMerchant = memoryCache.Get<MerchantDto>(requestId+"_merchantDto");
+                var cachedLinkToMerchant = memoryCache.Get<string>(requestId+"_linkToMerchant");
+                return TypedResults.Created(cachedLinkToMerchant, cachedMerchant);
+            }
+
+            // Map and save data to DB
+            var merchantEntity = mapper.Map<Merchant>(merchantForCreationDto);
+            merchantDbContext.Add(merchantEntity);
+            await merchantDbContext.SaveChangesAsync();
+            var merchantToReturn = mapper.Map<MerchantDto>(merchantEntity);
+
+            // Generate link to the created merchant
+            var linkToMerchant = linkGenerator.GetUriByName(httpContext, "GetMerchant", new { merchantId = merchantToReturn.Id });
+
+            // Cache the created merchant and link with the request id
+            memoryCache.Set<MerchantDto>(requestId + "_merchantDto", merchantToReturn, TimeSpan.FromMinutes(2));
+            memoryCache.Set<string>(requestId + "_linkToMerchant", linkToMerchant, TimeSpan.FromMinutes(2));
+            bool processed = true;
+            memoryCache.Set<bool>(requestId, processed, TimeSpan.FromMinutes(2));
+
+            return TypedResults.Created(linkToMerchant, merchantToReturn);
+        }
     }
 
 }
