@@ -9,6 +9,7 @@ using Microsoft.AspNetCore.Routing;
 using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
 using Microsoft.Extensions.Caching.Memory;
+using MerchantsAPI_p2.Extensions;
 
 namespace MerchantsAPI_p2.EndpointHandlers
 {
@@ -71,6 +72,19 @@ namespace MerchantsAPI_p2.EndpointHandlers
             return TypedResults.NoContent();
         }
 
+        public static async Task<Results<NotFound, NoContent>> DeleteMerchantAsync(MerchantDbContext merchantDbContext, 
+                                                                                    Guid merchant_id)
+        {
+            var merchantEntity = await merchantDbContext.Merchants.FirstOrDefaultAsync(mer => mer.Id == merchant_id);
+            if (merchantEntity == null)
+            {
+                TypedResults.NotFound();
+            }
+            merchantDbContext.Merchants.Remove(merchantEntity);
+            await merchantDbContext.SaveChangesAsync();
+            return TypedResults.NoContent();
+        }
+
         // For Testing purposes
         public static async Task<Results<NotFound, Ok<Merchant>>> GetMerchantsAllFieldsTestingAsync(MerchantDbContext merchantDbContext,
                                                                                                     Guid merchant_unique_id)
@@ -117,7 +131,7 @@ namespace MerchantsAPI_p2.EndpointHandlers
 
         }
 
-        // Add idempotency cache
+        // Add idempotency cache to prevent duplicates
         public static async Task<Results<NotFound, Created<MerchantDto>>> PostMerchantAsync(MerchantDbContext merchantDbContext,
                                                                                 IMapper mapper,
                                                                                 MerchantForCreationDto merchantForCreationDto,
@@ -132,8 +146,8 @@ namespace MerchantsAPI_p2.EndpointHandlers
             if(memoryCache.TryGetValue(requestId, out bool isProcessed) &&  isProcessed)
             {
                 Console.WriteLine("Request is processed, return from cache");
-                var cachedMerchant = memoryCache.Get<MerchantDto>(requestId+"_merchantDto");
-                var cachedLinkToMerchant = memoryCache.Get<string>(requestId+"_linkToMerchant");
+                var cachedMerchant = memoryCache.Get<MerchantDto>(requestId + "_merchantDto");
+                var cachedLinkToMerchant = memoryCache.Get<string>(requestId + "_linkToMerchant");
                 return TypedResults.Created(cachedLinkToMerchant, cachedMerchant);
             }
 

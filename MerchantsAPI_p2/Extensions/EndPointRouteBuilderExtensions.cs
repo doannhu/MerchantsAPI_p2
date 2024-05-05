@@ -16,6 +16,8 @@ namespace MerchantsAPI_p2.Extensions
 
             merchantsEndpoints.MapPut("/{merchant_id:guid}/payment-method", MerchantHandler.PutMerchantUpdatePaymentAsync);
 
+            merchantsEndpoints.MapDelete("/{merchant_id:guid}", MerchantHandler.DeleteMerchantAsync);
+
             // For Testing purpose, comment merchantsEndpoints.MapGet("", MerchantHandler.GetMerchantsAsync)
             // when activate this testing endpoint
             // merchantsEndpoints.MapGet("/{merchant_unique_id:guid}", MerchantHandler.GetMerchantsAllFieldsTestingAsync);
