@@ -31,12 +31,14 @@ namespace MerchantsAPI_p2.EndpointHandlers
 
         public static async Task<Results<NotFound, Ok<MerchantDto>>> GetAMerchantAsync(MerchantDbContext merchantDbContext,
                                                                                IMapper mapper,
-                                                                               Guid merchant_unique_id)
+                                                                               Guid merchant_unique_id,
+                                                                               ILogger<MerchantDto> logger)
         {
+            logger.LogInformation($"Getting merchant {merchant_unique_id}");
             var merchantEntity = await merchantDbContext.Merchants.FirstOrDefaultAsync(mer => mer.Id == merchant_unique_id);
             if (merchantEntity == null)
             {
-                TypedResults.NotFound();
+                return TypedResults.NotFound();
             }
             return TypedResults.Ok(mapper.Map<MerchantDto>(merchantEntity));
         }
@@ -64,7 +66,7 @@ namespace MerchantsAPI_p2.EndpointHandlers
             var merchantEntity = await merchantDbContext.Merchants.FirstOrDefaultAsync(mer => mer.Id == merchant_id);
             if (merchantEntity == null)
             {
-                TypedResults.NotFound();
+                return TypedResults.NotFound();
             }
             mapper.Map(merchantForUpdatePaymentDto, merchantEntity);
             await merchantDbContext.SaveChangesAsync();
@@ -78,7 +80,7 @@ namespace MerchantsAPI_p2.EndpointHandlers
             var merchantEntity = await merchantDbContext.Merchants.FirstOrDefaultAsync(mer => mer.Id == merchant_id);
             if (merchantEntity == null)
             {
-                TypedResults.NotFound();
+                return TypedResults.NotFound();
             }
             merchantDbContext.Merchants.Remove(merchantEntity);
             await merchantDbContext.SaveChangesAsync();
@@ -103,8 +105,10 @@ namespace MerchantsAPI_p2.EndpointHandlers
                               ClaimsPrincipal claimsPrincipal,
                               IMapper mapper,
                               IMemoryCache memoryCache,
+                              ILogger<MerchantDto> logger,
                               [FromQuery] string? name)
-        {
+        {   
+            logger.LogInformation("Getting list of merchants....");
             Console.WriteLine($"User authenticated? {claimsPrincipal.Identity?.IsAuthenticated}");
             
             // Check if data is already in cache
